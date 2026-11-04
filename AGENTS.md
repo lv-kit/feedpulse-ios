@@ -44,7 +44,12 @@ FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS�
 
 ## コンテキスト節約
 
-- ファイル全体を読む前に grep で検索し、必要な箇所だけ読む
+- ファイル全体を読む前に検索し、必要な箇所だけ読む
+- コード検索は [semble](https://github.com/MinishLab/semble) が使えるなら grep より優先する。`semble --version` で確認し、無ければ `uvx --from "semble[mcp]" semble` で代用、それも使えなければ grep
+  - 検索: `semble search "自然言語またはシンボル名" . --top-k 10`（ドキュメント・設定は `--content docs` / `config` / `all`）
+  - 類似箇所: `semble find-related <file> <line> .`
+  - 正規表現・完全一致の文字列検索は grep のまま（semble は正規表現検索ではない）
+  - 初回のみ Hugging Face からモデルを取得する。ネットワークが使えない環境では grep にフォールバック
 - プロジェクト探索はサブエージェントに任せ、要約だけ受け取る
 - 変更内容はファイル全体ではなく diff で示す
 - このセッションで決定済みの事項を蒸し返さない
