@@ -74,14 +74,16 @@ public struct FeedpulseTarget: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - 上限と正規化（ingest の検証と同じ値で切る）
+// MARK: - 上限と正規化（ingest の `TARGET_LIMITS`（shared/context.ts）と同じ値。超過は ingest が target ごと捨てるので SDK 側で切る）
 
 public enum FeedpulseTargetLimits {
     public static let id = 200
-    public static let screen = 200
+    public static let screen = 512
     public static let path = 512
     public static let defaultLabel = 100
     public static let maxLabel = 200
+    /// rect の各値の絶対値上限（超えると ingest は target ごと捨てる）。
+    public static let rectAbs = 1_000_000.0
 }
 
 enum TargetSanitizer {
@@ -124,7 +126,8 @@ enum TargetSanitizer {
     }
 
     static func rect(_ r: FeedpulseTarget.Rect?) -> FeedpulseTarget.Rect? {
-        guard let r, [r.x, r.y, r.w, r.h].allSatisfy({ $0.isFinite }), r.w >= 0, r.h >= 0 else { return nil }
+        guard let r, [r.x, r.y, r.w, r.h].allSatisfy({ $0.isFinite && abs($0) <= FeedpulseTargetLimits.rectAbs }),
+              r.w >= 0, r.h >= 0 else { return nil }
         return .init(x: r.x.rounded(), y: r.y.rounded(), w: r.w.rounded(), h: r.h.rounded())
     }
 

@@ -166,7 +166,7 @@ public enum Feedpulse {
             guard let hit = win.hitTest(local, with: nil) else { return false }
             return hit !== win || win.isKeyWindow
         } ?? scene.windows.first { $0.isKeyWindow }
-        guard let window else { return FeedpulseTarget(platform: .ios, screen: screenName) }
+        guard let window else { return FeedpulseTarget(platform: .ios, screen: screenName, path: "UIWindow") }
         let local = window.convert(point, from: overlay)
         return TargetResolver.resolve(in: window, at: local, screenName: screenName, labelLimit: labelLimit)
     }
