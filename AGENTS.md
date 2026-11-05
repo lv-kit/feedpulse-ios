@@ -5,6 +5,32 @@ FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS�
 
 定義されていないコマンドを推測で書かない。
 
+## 構成
+
+- Swift Package（`Package.swift`、iOS 15+ / macOS 12+）。ライブラリ `Feedpulse` 1つ。CocoaPods 用に `Feedpulse.podspec` もある
+- `Sources/Feedpulse/SDK/`: 送信・設定取得・検証・App Attest。`Sources/Feedpulse/Picker/`: 該当箇所ピッカー（UIKit 依存）
+- `Tests/FeedpulseTests/`: 単体テスト。`Fixtures/` は契約 fixture（下記）
+
+## 検証
+
+CI（`.github/workflows/ci.yml`）と同じ形で実行する。
+
+- `swift test`: macOS で実行（UIKit 依存のピッカーを除く）
+- `xcodebuild build -scheme Feedpulse -destination 'generic/platform=iOS Simulator'`: CI のビルド
+- `xcodebuild test -scheme Feedpulse -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`: シミュレーターでの全テスト（機種名は `xcrun simctl list devices available` で確認する）
+
+実機の App Attest は自動テストで確認できない（README の「既知の限界」）。
+
+## API 契約
+
+- 正本は `lv-kit/feedpulse-web` の `packages/shared/src/native/`。`Tests/FeedpulseTests/Fixtures/contract.json` と `schemas/` はその複製で、手で編集しない
+- 契約が変わったら、正本の fixture で置き換え、README の複製元コミットの記載も更新する。`ContractTests.swift` が fixture を再生して SDK を検証する
+- 他の SDK（android / rn / flutter）と契約・挙動を揃える。仕様の追加・変更は正本側で決める
+
+## リリース
+
+手順は `RELEASING.md`。バージョンは `Feedpulse.podspec` の `version` と `CHANGELOG.md`。タグ付けと Releases の作成はメンテナが行う。エージェントはタグを打たない。
+
 ## 言語ルール
 
 - **Issue・PR（タイトル・本文・コメント・レビュー返信）・コミットメッセージ**: 日本語
