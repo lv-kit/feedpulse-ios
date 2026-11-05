@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/config-response.schema.json",
+  "title": "GET /v1/config の応答（200、ネイティブ経路）",
+  "type": "object",
+  "required": ["widget", "forms"],
+  "properties": {
+    "widget": { "type": "object" },
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "slug", "name", "type", "version", "definition"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "enum": ["inquiry", "bug", "improvement"] },
+          "version": { "type": "integer", "minimum": 1, "description": "公開済みの版。キャッシュの更新判定に使う。" },
+          "definition": {
+            "type": "object",
+            "required": ["blocks"],
+            "properties": {
+              "allowTarget": { "type": "boolean" },
+              "blocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "type", "label", "required"],
+                  "properties": {
+                    "id": { "type": "string" },
+                    "type": { "enum": ["short_text", "long_text", "email", "number", "select", "radio", "checkbox", "rating", "image", "file"] },
+                    "label": { "type": "string" },
+                    "required": { "type": "boolean" },
+                    "maxLength": { "type": "integer" },
+                    "min": { "type": "number" },
+                    "max": { "type": "number" },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["value", "label"],
+                        "properties": { "value": { "type": "string" }, "label": { "type": "string" } },
+                        "additionalProperties": false
+                      }
+                    },
+                    "maxFiles": { "type": "integer" },
+                    "maxTotalBytes": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

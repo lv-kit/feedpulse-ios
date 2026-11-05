@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/native-challenge-request.schema.json",
+  "title": "POST /v1/native/challenge の要求",
+  "type": "object",
+  "required": ["pk"],
+  "properties": { "pk": { "type": "string", "minLength": 1, "maxLength": 100 } },
+  "additionalProperties": false
+}

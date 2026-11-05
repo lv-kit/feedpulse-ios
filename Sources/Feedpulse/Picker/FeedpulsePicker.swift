@@ -61,8 +61,8 @@ final class PickerOverlay {
     }
 }
 
-/// 公開 API の入口。
-public enum Feedpulse {
+/// ピッカー API（`Feedpulse` の拡張）。SDK 本体の入口は `SDK/Feedpulse.swift`。
+extension Feedpulse {
     @MainActor private static var activeSession: FeedpulsePickerSession?
 
     /// 画面に透明オーバーレイを出し、次のタップで要素を特定する。

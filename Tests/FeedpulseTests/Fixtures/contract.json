@@ -1,0 +1,334 @@
+{
+  "version": 1,
+  "description": "モバイル SDK の契約 fixture。各 SDK のテストはこのファイルを読み、request を送ったときに response が返るサーバー（モック）として使う。request / response の body は schema に適合する。{{...}} は実行時に置き換える値（SDK のテストでは任意の妥当な値でよい）。",
+  "placeholders": {
+    "{{challenge}}": "POST /v1/native/challenge が返した challenge",
+    "{{expiredChallenge}}": "有効期限を過ぎた challenge",
+    "{{session}}": "POST /v1/native/session が返した session",
+    "{{expiredSession}}": "有効期限を過ぎた session",
+    "{{formId}}": "GET /v1/config の forms[].id",
+    "{{identity}}": "顧客バックエンドが発行した身元確認トークン"
+  },
+  "fixtures": [
+    {
+      "name": "challenge-ok",
+      "kind": "success",
+      "description": "challenge の発行。120 秒有効。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/challenge",
+        "headers": { "content-type": "application/json" },
+        "body": { "pk": "pk_example" },
+        "schema": "native-challenge-request"
+      },
+      "response": {
+        "status": 200,
+        "body": { "challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "expiresAt": 1700000120 },
+        "schema": "native-challenge-response"
+      }
+    },
+    {
+      "name": "session-ok-play-integrity",
+      "kind": "success",
+      "description": "Android: Play Integrity のトークンでセッションを得る。セッションの有効期間は 900 秒。再取得は期限切れ（401 invalid_session）か expiresAt の手前で行う。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "android",
+          "appId": "com.example.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "play_integrity", "token": "integrity-token" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": {
+        "status": 200,
+        "body": { "session": "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJleGFtcGxlIn0.c2lnbmF0dXJl", "expiresAt": 1700000900 },
+        "schema": "native-session-response"
+      }
+    },
+    {
+      "name": "session-ok-app-attest-attestation",
+      "kind": "success",
+      "description": "iOS: 端末で鍵を作った直後の 1 回だけ attestation を送る。keyId は端末に保存する。同じ keyId の attestation は再送できない（403 attestation_failed）。以降は assertion を使う。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "ios",
+          "appId": "com.example.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "app_attest_attestation", "keyId": "a2V5SWQ=", "attestation": "YXR0ZXN0YXRpb24=" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": {
+        "status": 200,
+        "body": { "session": "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJleGFtcGxlIn0.c2lnbmF0dXJl", "expiresAt": 1700000900 },
+        "schema": "native-session-response"
+      }
+    },
+    {
+      "name": "session-ok-app-attest-assertion",
+      "kind": "success",
+      "description": "iOS: 登録済みの鍵で assertion を作ってセッションを得る。clientDataHash は SHA256(challenge の UTF-8)。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "ios",
+          "appId": "com.example.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "app_attest_assertion", "keyId": "a2V5SWQ=", "assertion": "YXNzZXJ0aW9u" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": {
+        "status": 200,
+        "body": { "session": "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJleGFtcGxlIn0.c2lnbmF0dXJl", "expiresAt": 1700000900 },
+        "schema": "native-session-response"
+      }
+    },
+    {
+      "name": "session-attestation-failed",
+      "kind": "attestation_failure",
+      "description": "アプリ証明の検証に失敗（偽造・欠落・別アプリ・再利用）。理由は返さない。SDK はリトライせず、新しい challenge で作り直す（iOS は鍵の再作成が必要な場合がある）。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "android",
+          "appId": "com.example.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "play_integrity", "token": "forged-token" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": { "status": 403, "body": { "error": "attestation_failed" }, "schema": "error-response" }
+    },
+    {
+      "name": "session-challenge-expired",
+      "kind": "expired",
+      "description": "challenge の有効期限切れ。新しい challenge を取り直して再試行する。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "android",
+          "appId": "com.example.app",
+          "challenge": "{{expiredChallenge}}",
+          "attestation": { "type": "play_integrity", "token": "integrity-token" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": { "status": 400, "body": { "error": "challenge_expired" }, "schema": "error-response" }
+    },
+    {
+      "name": "session-app-not-registered",
+      "kind": "validation_error",
+      "description": "プロジェクトにこのアプリ（bundle ID / package name）が登録されていない。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "android",
+          "appId": "com.other.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "play_integrity", "token": "integrity-token" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": { "status": 403, "body": { "error": "app_not_registered" }, "schema": "error-response" }
+    },
+    {
+      "name": "session-rate-limited",
+      "kind": "rate_limited",
+      "description": "レート制限。Retry-After（秒）の後に再試行する。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/native/session",
+        "headers": { "content-type": "application/json" },
+        "body": {
+          "pk": "pk_example",
+          "platform": "android",
+          "appId": "com.example.app",
+          "challenge": "{{challenge}}",
+          "attestation": { "type": "play_integrity", "token": "integrity-token" }
+        },
+        "schema": "native-session-request"
+      },
+      "response": { "status": 429, "headers": { "retry-after": "30" }, "body": { "error": "rate_limited" }, "schema": "error-response" }
+    },
+    {
+      "name": "config-ok",
+      "kind": "success",
+      "description": "項目定義の取得。SDK は forms[].version を見てローカルのキャッシュを更新する。失敗したら前回値を使う。",
+      "request": {
+        "method": "GET",
+        "path": "/v1/config?pk=pk_example",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}" }
+      },
+      "response": {
+        "status": 200,
+        "headers": { "cache-control": "private, max-age=60" },
+        "body": {
+          "widget": {},
+          "forms": [
+            {
+              "id": "6f1d2c3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+              "slug": "bug",
+              "name": "不具合の報告",
+              "type": "bug",
+              "version": 3,
+              "definition": {
+                "allowTarget": true,
+                "blocks": [
+                  { "id": "title", "type": "short_text", "label": "件名", "required": true, "maxLength": 50 },
+                  { "id": "body", "type": "long_text", "label": "本文", "required": false },
+                  { "id": "severity", "type": "radio", "label": "重要度", "required": true, "options": [{ "value": "low", "label": "低" }, { "value": "high", "label": "高" }] }
+                ]
+              }
+            }
+          ]
+        },
+        "schema": "config-response"
+      }
+    },
+    {
+      "name": "config-session-expired",
+      "kind": "expired",
+      "description": "セッションの期限切れ・不正。native/session で取り直して再試行する。",
+      "request": {
+        "method": "GET",
+        "path": "/v1/config?pk=pk_example",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{expiredSession}}" }
+      },
+      "response": { "status": 401, "body": { "error": "invalid_session" }, "schema": "error-response" }
+    },
+    {
+      "name": "config-rate-limited",
+      "kind": "rate_limited",
+      "description": "レート制限。",
+      "request": {
+        "method": "GET",
+        "path": "/v1/config?pk=pk_example",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}" }
+      },
+      "response": { "status": 429, "headers": { "retry-after": "30" }, "body": { "error": "rate_limited" }, "schema": "error-response" }
+    },
+    {
+      "name": "submit-ok",
+      "kind": "success",
+      "description": "送信の受理。同じ idempotencyKey の再送には同じ id を返す（二重に保存しない）。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": {
+          "formId": "{{formId}}",
+          "idempotencyKey": "k3FvQ2mT9xLw8RzB",
+          "fields": { "title": "ログインできない", "severity": "high" },
+          "context": { "auto": { "os": "Android 15", "locale": "ja-JP" }, "custom": { "plan": "pro" } }
+        },
+        "schema": "submit-request"
+      },
+      "response": { "status": 202, "body": { "id": "0b9f1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d" }, "schema": "submit-response" }
+    },
+    {
+      "name": "submit-ok-with-identity",
+      "kind": "success",
+      "description": "身元確認トークン付きの送信。トークンは顧客バックエンドが発行し、SDK の identify(token) で受け取った値をそのまま context.identity に載せる。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "ios", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": {
+          "formId": "{{formId}}",
+          "idempotencyKey": "k3FvQ2mT9xLw8RzB",
+          "fields": { "title": "ログインできない", "severity": "high" },
+          "context": { "identity": "{{identity}}" }
+        },
+        "schema": "submit-request"
+      },
+      "response": { "status": 202, "body": { "id": "0b9f1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d" }, "schema": "submit-response" }
+    },
+    {
+      "name": "submit-invalid-fields",
+      "kind": "validation_error",
+      "description": "項目の検証エラー。fields にブロック ID ごとのエラーコードを返す。SDK は送信前に同じ規則で検証する。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": { "formId": "{{formId}}", "fields": { "severity": "urgent" } },
+        "schema": "submit-request"
+      },
+      "response": { "status": 422, "body": { "error": "invalid_fields", "fields": { "title": "required", "severity": "invalid_option" } }, "schema": "error-response" }
+    },
+    {
+      "name": "submit-identity-invalid",
+      "kind": "validation_error",
+      "description": "プロジェクトが身元確認を必須にしているときに、トークンが無い・不正・期限切れ。code は失敗理由。顧客が再発行したトークンを identify() で渡し直す。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": { "formId": "{{formId}}", "fields": { "title": "t", "severity": "low" }, "context": { "identity": "{{identity}}" } },
+        "schema": "submit-request"
+      },
+      "response": { "status": 401, "body": { "error": "identity_invalid", "code": "expired" }, "schema": "error-response" }
+    },
+    {
+      "name": "submit-session-expired",
+      "kind": "expired",
+      "description": "セッションの期限切れ。native/session で取り直し、同じ idempotencyKey で再送する。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{expiredSession}}", "content-type": "application/json" },
+        "body": { "formId": "{{formId}}", "fields": { "title": "t", "severity": "low" } },
+        "schema": "submit-request"
+      },
+      "response": { "status": 401, "body": { "error": "invalid_session" }, "schema": "error-response" }
+    },
+    {
+      "name": "submit-rate-limited",
+      "kind": "rate_limited",
+      "description": "レート制限。Retry-After の後に同じ idempotencyKey で再送する。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": { "formId": "{{formId}}", "fields": { "title": "t", "severity": "low" } },
+        "schema": "submit-request"
+      },
+      "response": { "status": 429, "headers": { "retry-after": "30" }, "body": { "error": "rate_limited" }, "schema": "error-response" }
+    },
+    {
+      "name": "submit-app-not-registered",
+      "kind": "attestation_failure",
+      "description": "登録を削除されたアプリ。発行済みのセッションでも拒否される。",
+      "request": {
+        "method": "POST",
+        "path": "/v1/submit",
+        "headers": { "x-feedpulse-platform": "android", "authorization": "Bearer {{session}}", "content-type": "application/json" },
+        "body": { "formId": "{{formId}}", "fields": { "title": "t", "severity": "low" } },
+        "schema": "submit-request"
+      },
+      "response": { "status": 403, "body": { "error": "app_not_registered" }, "schema": "error-response" }
+    }
+  ]
+}

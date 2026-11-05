@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/native-challenge-response.schema.json",
+  "title": "POST /v1/native/challenge の応答（200）",
+  "type": "object",
+  "required": ["challenge", "expiresAt"],
+  "properties": {
+    "challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{48}$" },
+    "expiresAt": { "type": "integer", "minimum": 0, "description": "epoch 秒" }
+  },
+  "additionalProperties": false
+}

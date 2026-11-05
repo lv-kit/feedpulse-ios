@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/error-response.schema.json",
+  "title": "エラー応答",
+  "type": "object",
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "enum": [
+        "invalid_json",
+        "invalid_pk",
+        "invalid_platform",
+        "invalid_app",
+        "invalid_challenge",
+        "challenge_expired",
+        "attestation_failed",
+        "app_not_registered",
+        "invalid_session",
+        "rate_limited",
+        "unknown_project",
+        "unknown_form",
+        "invalid_form",
+        "invalid_idempotency_key",
+        "invalid_fields",
+        "identity_invalid",
+        "payload_too_large",
+        "unsupported_media_type",
+        "quota_exceeded",
+        "project_read_only",
+        "not_found",
+        "internal"
+      ]
+    },
+    "fields": {
+      "description": "error が invalid_fields のとき。ブロック ID から検証エラーコードへの対応。",
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["required", "type", "too_long", "invalid_option", "invalid_email", "out_of_range", "too_many_files", "invalid_upload"]
+      }
+    },
+    "code": {
+      "description": "error が identity_invalid のとき。身元確認トークンの失敗理由。",
+      "enum": ["missing", "malformed", "alg", "kid", "signature", "expired", "lifetime", "audience"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/identity-token.schema.json",
+  "title": "身元確認トークン（JWT HS256）のペイロード",
+  "description": "ヘッダーは {\"alg\":\"HS256\",\"typ\":\"JWT\",\"kid\":\"<プロジェクトの鍵 ID>\"}。署名鍵はプロジェクトの sk_。SDK は検証せず、context.identity にそのまま載せる。",
+  "type": "object",
+  "required": ["sub", "aud", "exp"],
+  "properties": {
+    "sub": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "aud": { "type": "string", "description": "プロジェクト ID（UUID）" },
+    "exp": { "type": "integer", "description": "epoch 秒。発行から 1 時間以内" },
+    "iat": { "type": "integer" }
+  },
+  "additionalProperties": { "type": ["string", "number", "boolean"] }
+}
