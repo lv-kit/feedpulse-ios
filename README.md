@@ -3,6 +3,35 @@
 Feedpulse iOS SDK（SwiftPM）。ヘッドレスで UI は同梱しない。現在は「該当箇所ピッカー」（lv-kit/feedpulse-web#114）を実装している。
 `/v1/config`・`/v1/submit`・App Attest（#3 P3）は未実装。
 
+## 導入
+
+要件: iOS 15.0 以上 / Swift 5.9 以上。現時点では SwiftPM / CocoaPods のレジストリには未公開で、Git のタグ（最新は `0.1.1`）から取得する。
+
+### Swift Package Manager
+
+Xcode: **File > Add Package Dependencies…** に `https://github.com/lv-kit/feedpulse-ios.git` を入力し、バージョンルールを「Up to Next Major」で `0.1.1` にして、ターゲットに `Feedpulse` を追加する。
+
+`Package.swift` の場合:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/lv-kit/feedpulse-ios.git", from: "0.1.1"),
+],
+targets: [
+    .target(name: "YourApp", dependencies: [.product(name: "Feedpulse", package: "feedpulse-ios")]),
+]
+```
+
+### CocoaPods
+
+`Podfile` に追加して `pod install` を実行する（トランクには未公開なので Git とタグを指定する）。
+
+```ruby
+pod 'Feedpulse', :git => 'https://github.com/lv-kit/feedpulse-ios.git', :tag => '0.1.1'
+```
+
+導入後は `import Feedpulse` で使える。ネットワーク権限や Info.plist の追加設定は要らない。
+
 ## 該当箇所ピッカー
 
 ```swift
