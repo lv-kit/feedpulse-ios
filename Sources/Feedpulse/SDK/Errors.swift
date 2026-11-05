@@ -140,7 +140,7 @@ public enum FeedpulseError: Error, Equatable, Sendable {
         switch self {
         case .network: return true
         case .invalidResponse(let status): return status >= 500
-        case .api(let e): return e.status == 429 || e.status >= 500
+        case .api(let e): return (e.status == 429 && e.code != .quotaExceeded) || e.status >= 500
         default: return false
         }
     }

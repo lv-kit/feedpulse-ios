@@ -45,7 +45,7 @@ actor FeedpulseEngine {
     /// 項目定義を返す。鮮度内のキャッシュがあれば通信しない（`force` なら必ず通信する）。
     /// 通信に失敗したら前回値を返し、前回値も無いときだけ投げる。
     func loadConfig(force: Bool) async throws -> ConfigResult {
-        if !force, let cache, env.now().timeIntervalSince(cache.fetchedAt) < cache.ttl {
+        if !force, let cache, (0..<cache.ttl).contains(env.now().timeIntervalSince(cache.fetchedAt)) {
             return .init(config: cache.config, isStale: false, error: nil)
         }
         do {
@@ -74,7 +74,8 @@ actor FeedpulseEngine {
     /// 送信先の項目定義。キャッシュに無ければ 1 回だけ取得する。
     func form(id: String) async throws -> FeedpulseForm {
         if let f = cache?.config.forms.first(where: { $0.id == id }) { return f }
-        let result = try await loadConfig(force: false)
+        // キャッシュが鮮度内でも、無いフォームは公開されたばかりかもしれないので 1 回だけ取り直す。
+        let result = try await loadConfig(force: true)
         guard let f = result.config.forms.first(where: { $0.id == id }) else { throw FeedpulseError.unknownForm(id) }
         return f
     }

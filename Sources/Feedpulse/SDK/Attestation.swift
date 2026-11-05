@@ -90,28 +90,53 @@ public final class AppAttestProvider: FeedpulseAttestationProvider, @unchecked S
         guard service.isSupported else { throw FeedpulseError.attestationUnsupported }
         let clientDataHash = Data(SHA256.hash(data: Data(challenge.utf8)))
         do {
-            if let keyId = keyStore.load() {
-                let assertion = try await service.generateAssertion(keyId, clientDataHash: clientDataHash)
-                return .assertion(keyId: keyId, assertion: assertion.base64EncodedString())
+            if let keyId = currentKeyId() {
+                do {
+                    let assertion = try await service.generateAssertion(keyId, clientDataHash: clientDataHash)
+                    return .assertion(keyId: keyId, assertion: assertion.base64EncodedString())
+                } catch is CancellationError {
+                    throw FeedpulseError.cancelled
+                } catch {
+                    // 保存済みの鍵が端末側で無効（再インストール・OS 復元など）。捨てて、この呼び出しの中で作り直す。
+                    forgetKey()
+                }
             }
             let keyId = try await service.generateKey()
             let attestation = try await service.attestKey(keyId, clientDataHash: clientDataHash)
             return .attestation(keyId: keyId, attestation: attestation.base64EncodedString())
         } catch let error as FeedpulseError {
             throw error
+        } catch is CancellationError {
+            throw FeedpulseError.cancelled
         } catch {
-            // 保存済みの鍵が端末側で無効になっていることもある（OS 復元など）。次回は作り直す。
-            if keyStore.load() != nil { keyStore.delete() }
             throw FeedpulseError.attestationUnavailable(String(describing: error))
         }
     }
 
+    // Keychain に書けなかったときのためにメモリにも持つ（毎回新しい鍵を作り続けないように）。
+    private let lock = NSLock()
+    private var memoryKeyId: String?
+
+    private func currentKeyId() -> String? {
+        if let id = keyStore.load() { return id }
+        lock.lock(); defer { lock.unlock() }
+        return memoryKeyId
+    }
+
+    private func forgetKey() {
+        keyStore.delete()
+        lock.lock(); memoryKeyId = nil; lock.unlock()
+    }
+
     public func accepted(_ payload: FeedpulseAttestationPayload) async {
-        if case .attestation(let keyId, _) = payload { keyStore.save(keyId) }
+        if case .attestation(let keyId, _) = payload {
+            keyStore.save(keyId)
+            lock.lock(); memoryKeyId = keyId; lock.unlock()
+        }
     }
 
     public func rejected(_ payload: FeedpulseAttestationPayload) async {
-        keyStore.delete()
+        forgetKey()
     }
 }
 

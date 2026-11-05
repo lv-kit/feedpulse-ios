@@ -342,3 +342,53 @@ final class ValidatorTests: XCTestCase {
         XCTAssertNil(r.cleaned["ignored"])
     }
 }
+
+@MainActor
+final class ReviewFixTests: XCTestCase {
+    let contract = ContractTests()
+
+    func testQuotaExceededIsNotRetried() async throws {
+        let h = contract.makeHarness()
+        contract.serve()
+        try await h.client.refresh()
+        contract.serve(["/v1/submit": { _ in .json(429, ["error": "quota_exceeded"]) }])
+        do { try await h.client.submit(FeedpulseSubmission(formId: contract.formId, values: ["title": "t", "severity": "low"])); XCTFail() }
+        catch { XCTAssertEqual((error as? FeedpulseError)?.apiCode, .quotaExceeded) }
+        XCTAssertEqual(contract.requests("/v1/submit").count, 1)
+    }
+
+    func testNewlyPublishedFormRefetchesDespiteFreshCache() async throws {
+        let h = contract.makeHarness()
+        contract.serve()
+        try await h.client.refresh()
+        contract.serve(["/v1/config": { _ in
+            var body = Contract.fixture("config-ok").responseBody as! [String: Any]
+            var forms = body["forms"] as! [[String: Any]]
+            var second = forms[0]; second["id"] = "11111111-2222-4333-8444-555555555555"; forms.append(second)
+            body["forms"] = forms
+            return .json(200, body, headers: ["cache-control": "private, max-age=60"])
+        }])
+        try await h.client.submit(FeedpulseSubmission(formId: "11111111-2222-4333-8444-555555555555", values: ["title": "t", "severity": "low"]))
+        XCTAssertEqual(contract.requests("/v1/config").count, 1)
+    }
+
+    func testInvalidStoredKeyIsRecreatedInSameCall() async throws {
+        final class Failing: AppAttestServing, @unchecked Sendable {
+            var isSupported = true
+            func generateKey() async throws -> String { "bmV3S2V5" }
+            func attestKey(_ k: String, clientDataHash: Data) async throws -> Data { Data("a".utf8) }
+            func generateAssertion(_ k: String, clientDataHash: Data) async throws -> Data { throw NSError(domain: "DCErrorDomain", code: 3) }
+        }
+        let store = InMemoryKeyStore("b2xk")
+        let p = AppAttestProvider(service: Failing(), keyStore: store)
+        let payload = try await p.payload(forChallenge: String(repeating: "A", count: 48))
+        XCTAssertEqual(payload, .attestation(keyId: "bmV3S2V5", attestation: "YQ=="))
+        XCTAssertNil(store.load())
+    }
+
+    func testJSWhitespaceTrim() {
+        let b = FeedpulseBlock(id: "b", type: .shortText, label: "", required: true)
+        XCTAssertEqual(FormValidator.validate(blocks: [b], values: ["b": "\u{FEFF}"]).errors["b"], .required)
+        XCTAssertEqual(FormValidator.validate(blocks: [b], values: ["b": "\u{FEFF}x\u{3000}"]).cleaned["b"], "x")
+    }
+}

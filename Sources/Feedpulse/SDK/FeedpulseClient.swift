@@ -27,6 +27,7 @@ public final class FeedpulseClient: ObservableObject {
     private let engine: FeedpulseEngine
     private var identityToken: String?
     private var submittingCount = 0
+    private var refreshingCount = 0
 
     public convenience init(configuration: FeedpulseConfiguration) {
         self.init(engine: FeedpulseEngine(config: configuration))
@@ -49,8 +50,12 @@ public final class FeedpulseClient: ObservableObject {
     /// 通信に失敗しても前回値があれば前回値を返し（`isStale == true`、`lastRefreshError` に理由）、前回値が無いときだけ投げる。
     @discardableResult
     public func refresh(force: Bool = false) async throws -> [FeedpulseForm] {
+        refreshingCount += 1
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            refreshingCount -= 1
+            isRefreshing = refreshingCount > 0
+        }
         do {
             let result = try await engine.loadConfig(force: force)
             forms = result.config.forms

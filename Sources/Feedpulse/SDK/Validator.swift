@@ -64,8 +64,18 @@ enum FormValidator {
 
     /// JS の `String.prototype.trim` 相当（空白と行終端子）。
     private static func trim(_ s: String) -> String {
-        s.trimmingCharacters(in: .whitespacesAndNewlines)
+        s.trimmingCharacters(in: jsWhitespace)
     }
+
+    /// JS の `String.prototype.trim` が除く文字（WhiteSpace + LineTerminator）。Foundation の集合とは U+0085 / U+FEFF が違う。
+    private static let jsWhitespace: CharacterSet = {
+        var set = CharacterSet()
+        for v in [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF] {
+            set.insert(Unicode.Scalar(UInt32(v))!)
+        }
+        set.insert(charactersIn: Unicode.Scalar(0x2000)!...Unicode.Scalar(0x200A)!)
+        return set
+    }()
 
     private static func validateBlock(_ block: FeedpulseBlock, _ raw: FeedpulseValue) -> Result<FeedpulseValue, FeedpulseFieldError> {
         switch block.type {

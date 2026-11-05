@@ -144,6 +144,7 @@ struct FeedbackView: View {
 - セッションはメモリに 900 秒キャッシュし、期限の 30 秒前に取り直す。同時に複数の呼び出しがあっても取得は 1 回にまとめる。`invalid_session` を受けたら取り直す。
 - `keyId` は Keychain に保存する（この端末のみ・初回アンロック後に読める）。**サーバーが attestation を受理した後で保存する**。assertion が `attestation_failed` で拒否されたら鍵を捨て、新しい鍵で attestation からやり直す（1 回だけ）。
 - challenge の期限切れ・再利用（`challenge_expired` / `invalid_challenge`）は challenge を取り直して再試行する（最大 3 周）。
+- assertion が `attestation_failed` で拒否される原因が bundle ID / Team ID の登録ミスなどサーバー側設定のときも鍵を作り直す（1 回で止まる）。
 - アプリ証明の失敗理由はサーバーが返さないので、SDK はそれ以上リトライしない。
 
 ### ローカル開発
@@ -162,6 +163,8 @@ Feedpulse.configure(publicKey: "pk_dev", baseURL: URL(string: "http://localhost:
 - `refresh()` は `Cache-Control: max-age`（サーバーは 60 秒）の間は通信せずキャッシュを返す。`refresh(force: true)` は必ず通信する。
 - 成功した応答は `Caches/Feedpulse/` に JSON で保存する（`baseURL` と `pk` ごと）。次回起動時に読み込み、起動直後から `forms` が埋まる。保存できなくても動く（キャッシュ無し）。OS が Caches を消すことがある。
 - 通信に失敗したら**前回値を返す**（`isStale == true`、理由は `lastRefreshError`）。前回値も無いときだけ `refresh()` が投げる。回復して成功すると `isStale` は false に戻る。
+- 送信先の formId がキャッシュに無いときは、鮮度内でも 1 回だけ取り直す（公開直後のフォーム対策）。
+- 通信失敗の理由を問わず前回値を返す（アプリ登録の削除による `app_not_registered` なども）。呼び出し側は `lastRefreshError` で判別できる。
 - 公開版が上がったか（`forms[].version`）は、最新の取得結果で丸ごと置き換える。古い定義で送ってサーバーに拒否された（`invalid_fields` など）ときは `refresh(force: true)` で更新する。
 
 ## 身元確認（identify）
