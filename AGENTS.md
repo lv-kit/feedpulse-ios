@@ -3,7 +3,7 @@
 FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS）の iOS 向けクライアント。Swift / Xcode ベースのネイティブアプリ。
 バックエンド API は `lv-kit/feedpulse-web` の `apps/ingest`（公開 API）。API の仕様変更はそちらを正とする。
 
-プロジェクトの雛形はまだ無い。ビルド・テスト・起動コマンドは雛形作成時にこのファイルへ追記する。定義されていないコマンドを推測で書かない。
+定義されていないコマンドを推測で書かない。
 
 ## 言語ルール
 
@@ -12,31 +12,31 @@ FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS�
 
 ## Git の運用
 
-- **force-push 禁止**
-- **rebase 禁止**（履歴を書き換えない）
-- **`main` への取り込みは merge**（merge commit または GitHub の merge。rebase merge は使わない方針）
-- **`git commit --no-verify` 禁止**（フックを迂回しない）
+- force-push 禁止
+- rebase 禁止（履歴を書き換えない）
+- `main` への取り込みは merge（merge commit または GitHub の merge。rebase merge は使わない）
+- `git commit --no-verify` 禁止（フックを迂回しない）
 
 ## 秘密情報
 
 - 秘密値・本番キー・署名鍵・証明書・プロビジョニングプロファイルをコミットしない
-- API キーや環境ごとの値はリポジトリ外で管理し、必要ならダミー値の雛形ファイル（`*.example` 等）だけを置く
+- API キーや環境ごとの値はリポジトリ外で管理する。置いてよいのはダミー値の雛形ファイル（`*.example` 等）だけ
 
 ## 変更後の流れ
 
-ファイルを変更したら、コミットだけで終わらせず、PR の作成まで行う。
+ファイルを変更したら、PR の作成まで行う。コミットだけで終わらせない。
 
 1. 変更内容に応じて、ビルドと該当テストを実行する
 2. 日本語のコミットメッセージでコミットする（「Git の運用」に従う）
-3. ブランチを push する（force-push はしない）
+3. ブランチを push する
 4. `main` 向けの PR を作成する（「PR の書き方」に従う）
 
-読み取りだけの調査や質問への回答など、ファイルを変更しない作業には適用しない。ユーザーが「コミットまで」「PR は不要」など範囲を指定したときは、その指示を優先する。
+ファイルを変更しない作業（調査・質問への回答）には適用しない。ユーザーが「コミットまで」「PR は不要」など範囲を指定したときは、その指示を優先する。
 
 ## PR の書き方
 
-- 本文に **`Closes` / `Fixes` / `Resolves` を勝手に書かない**（リンク Issue の自動クローズはメンテナが判断）
-- **画面・UI に関わる PR** には変更前後のスクリーンショットを付ける
+- 本文に `Closes` / `Fixes` / `Resolves` を勝手に書かない（リンク Issue の自動クローズはメンテナが判断）
+- 画面・UI に関わる PR には変更前後のスクリーンショットを付ける
 
 ## エージェント向け注意
 
@@ -45,16 +45,16 @@ FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS�
 ## コンテキスト節約
 
 - ファイル全体を読む前に検索し、必要な箇所だけ読む
-- コード検索は [semble](https://github.com/MinishLab/semble) が使えるなら grep より優先する。`semble --version` で確認し、無ければ `uvx --from "semble[mcp]" semble` で代用、それも使えなければ grep
+- コード検索は [semble](https://github.com/MinishLab/semble) を grep より優先する。`semble --version` で確認し、無ければ `uvx --from "semble[mcp]" semble` を使う。どちらも使えなければ grep
   - 検索: `semble search "自然言語またはシンボル名" . --top-k 10`（ドキュメント・設定は `--content docs` / `config` / `all`）
   - 類似箇所: `semble find-related <file> <line> .`
-  - 正規表現・完全一致の文字列検索は grep のまま（semble は正規表現検索ではない）
-  - 初回のみ Hugging Face からモデルを取得する。ネットワークが使えない環境では grep にフォールバック
+  - 正規表現・完全一致の検索は grep（semble は正規表現検索ではない）
+  - 初回のみ Hugging Face からモデルを取得する。ネットワークが使えなければ grep
 - プロジェクト探索はサブエージェントに任せ、要約だけ受け取る
 - 変更内容はファイル全体ではなく diff で示す
-- このセッションで決定済みの事項を蒸し返さない
+- 決定済みの事項を蒸し返さない
 - タスクが変わるときは `/compact` か新規セッションを提案する
-- 回答はデフォルトで短くする（詳細は求められたときだけ）
+- 回答は既定で短くする（詳細は求められたときだけ）
 
 ## Worktree・PR・merge の運用
 
