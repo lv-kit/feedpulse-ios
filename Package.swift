@@ -3,12 +3,16 @@ import PackageDescription
 
 let package = Package(
     name: "Feedpulse",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v15), .macOS(.v12)],
     products: [
         .library(name: "Feedpulse", targets: ["Feedpulse"]),
     ],
     targets: [
         .target(name: "Feedpulse"),
-        .testTarget(name: "FeedpulseTests", dependencies: ["Feedpulse"]),
+        .testTarget(
+            name: "FeedpulseTests",
+            dependencies: ["Feedpulse"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/native-session-request.schema.json",
+  "title": "POST /v1/native/session の要求",
+  "type": "object",
+  "required": ["pk", "platform", "appId", "challenge", "attestation"],
+  "properties": {
+    "pk": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "platform": { "enum": ["ios", "android"] },
+    "appId": { "type": "string", "minLength": 1, "maxLength": 200, "description": "iOS は bundle ID、Android は package name" },
+    "challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{48}$" },
+    "attestation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "keyId", "attestation"],
+          "properties": {
+            "type": { "const": "app_attest_attestation" },
+            "keyId": { "type": "string", "minLength": 1, "maxLength": 100, "description": "base64（標準）" },
+            "attestation": { "type": "string", "minLength": 1, "maxLength": 20000, "description": "attestation object（CBOR）の base64（標準）" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "keyId", "assertion"],
+          "properties": {
+            "type": { "const": "app_attest_assertion" },
+            "keyId": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "assertion": { "type": "string", "minLength": 1, "maxLength": 5000, "description": "assertion（CBOR）の base64（標準）" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "token"],
+          "properties": {
+            "type": { "const": "play_integrity" },
+            "token": { "type": "string", "minLength": 1, "maxLength": 20000 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": { "type": { "const": "dev_insecure" } },
+          "additionalProperties": false,
+          "description": "ローカル開発専用。NATIVE_ATTEST_INSECURE_DEV=true のときだけ受け付ける。"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

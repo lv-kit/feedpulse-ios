@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/submit-request.schema.json",
+  "title": "POST /v1/submit の要求（ネイティブ経路。Turnstile は不要）",
+  "type": "object",
+  "required": ["formId", "fields"],
+  "properties": {
+    "formId": { "type": "string", "format": "uuid" },
+    "idempotencyKey": { "type": "string", "pattern": "^[A-Za-z0-9_-]{16,64}$", "description": "再送しても二重に保存されない。SDK が生成し、再送では同じ値を使う。" },
+    "fields": { "type": "object", "description": "ブロック ID から値への対応。値の型はブロックの種類に従う。" },
+    "context": {
+      "type": "object",
+      "properties": {
+        "auto": {
+          "type": "object",
+          "properties": {
+            "pagePath": { "type": "string" },
+            "referrer": { "type": "string" },
+            "os": { "type": "string" },
+            "browser": { "type": "string" },
+            "viewport": { "type": "string" },
+            "locale": { "type": "string" },
+            "timezone": { "type": "string" },
+            "target": { "type": "object" }
+          },
+          "additionalProperties": true
+        },
+        "custom": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+        "identity": { "type": "string", "description": "顧客バックエンドが sk_ で署名した JWT（HS256）。claims は identity-token.schema.json。" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

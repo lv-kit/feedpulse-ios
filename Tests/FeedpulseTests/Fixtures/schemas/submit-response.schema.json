@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://feedpulse.stargazy.xyz/schemas/native/submit-response.schema.json",
+  "title": "POST /v1/submit の応答（202）",
+  "type": "object",
+  "required": ["id"],
+  "properties": { "id": { "type": "string", "format": "uuid" } },
+  "additionalProperties": false
+}
