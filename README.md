@@ -5,6 +5,8 @@ Feedpulse iOS SDK（SwiftPM）。ヘッドレスで UI は同梱しない。現�
 
 ## 導入
 
+> **利用には Feedpulse への登録が必要。** SDK を使う前に <https://feedpulse.stargazy.xyz/> でアカウントを登録し、プロジェクトを作成して公開鍵（`pk_`）を発行する。
+
 要件: iOS 15.0 以上 / Swift 5.9 以上。現時点では SwiftPM / CocoaPods のレジストリには未公開で、Git のタグ（最新は `0.1.1`）から取得する。
 
 ### Swift Package Manager
