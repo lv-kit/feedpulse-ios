@@ -72,6 +72,60 @@ final class ResolverTests: XCTestCase {
         XCTAssertEqual(marker?.isUserInteractionEnabled, false)
     }
 
+    // MARK: SwiftUI marker の可視性・遮蔽
+
+    private func addMarker(_ id: String, frame: CGRect, to parent: UIView) -> FeedpulseIdMarkerView {
+        let marker = FeedpulseIdMarkerView(frame: frame)
+        marker.feedpulseId = id
+        parent.addSubview(marker)
+        return marker
+    }
+
+    func testMarkerBehindFrontViewIsNotSelected() {
+        _ = addMarker("behind", frame: CGRect(x: 40, y: 300, width: 80, height: 44), to: root.view)
+        let front = UIView(frame: CGRect(x: 30, y: 290, width: 100, height: 64))
+        root.view.addSubview(front)
+        let covered = resolve(50, 310)
+        XCTAssertNil(covered.id)
+        XCTAssertTrue(covered.path!.hasSuffix("UIView[1]"), covered.path ?? "")
+        // 前面ビューの外では目印が選ばれる
+        let sticking = addMarker("side", frame: CGRect(x: 200, y: 300, width: 50, height: 44), to: root.view)
+        XCTAssertEqual(resolve(sticking.frame.midX, sticking.frame.midY).id, "side")
+    }
+
+    func testMarkerInFrontOfBackgroundViewIsSelected() {
+        let back = UIView(frame: CGRect(x: 30, y: 290, width: 100, height: 64))
+        root.view.addSubview(back)
+        _ = addMarker("front", frame: CGRect(x: 40, y: 300, width: 80, height: 44), to: root.view)
+        XCTAssertEqual(resolve(50, 310).id, "front")
+    }
+
+    func testMarkerInHiddenAncestorIsNotSelected() {
+        let container = UIView(frame: CGRect(x: 0, y: 300, width: 200, height: 100))
+        root.view.addSubview(container)
+        _ = addMarker("hidden", frame: CGRect(x: 10, y: 10, width: 80, height: 44), to: container)
+        XCTAssertEqual(resolve(20, 320).id, "hidden")
+        container.isHidden = true
+        XCTAssertNil(resolve(20, 320).id)
+    }
+
+    func testMarkerInTransparentAncestorIsNotSelected() {
+        let container = UIView(frame: CGRect(x: 0, y: 300, width: 200, height: 100))
+        root.view.addSubview(container)
+        _ = addMarker("faded", frame: CGRect(x: 10, y: 10, width: 80, height: 44), to: container)
+        container.alpha = 0
+        XCTAssertNil(resolve(20, 320).id)
+    }
+
+    func testMarkerClippedByAncestorIsNotSelectedOutsideClip() {
+        let container = UIView(frame: CGRect(x: 0, y: 500, width: 100, height: 100))
+        container.clipsToBounds = true
+        root.view.addSubview(container)
+        _ = addMarker("clipped", frame: CGRect(x: 50, y: 20, width: 250, height: 40), to: container)
+        XCTAssertEqual(resolve(60, 530).id, "clipped")
+        XCTAssertNil(resolve(200, 530).id)
+    }
+
     func testSecureFieldValueAndLabelAreNeverCaptured() {
         let field = UITextField(frame: CGRect(x: 20, y: 400, width: 200, height: 40))
         field.isSecureTextEntry = true

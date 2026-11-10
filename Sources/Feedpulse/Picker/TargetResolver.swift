@@ -20,7 +20,7 @@ enum TargetResolver {
         let webView = ancestors(of: hit).first { $0 is WKWebView } as? WKWebView
         let leaf: UIView = webView ?? hit
 
-        let explicit = explicitSubject(leaf: leaf, in: window, at: point)
+        let explicit = explicitSubject(leaf: leaf, hit: hit, in: window, at: point)
         let subject = explicit?.view ?? leaf
 
         var target = FeedpulseTarget(platform: .ios)
@@ -46,7 +46,7 @@ enum TargetResolver {
     /// - 祖先の `accessibilityIdentifier`（UIKit）
     /// - タップ座標を含む `.feedpulseId` の目印（SwiftUI）
     /// 面積が最小（最も具体的）なものを選び、同面積なら目印を優先する。
-    private static func explicitSubject(leaf: UIView, in window: UIWindow, at point: CGPoint) -> Explicit? {
+    private static func explicitSubject(leaf: UIView, hit: UIView, in window: UIWindow, at point: CGPoint) -> Explicit? {
         var candidates: [(Explicit, CGFloat, Int)] = []
 
         if let view = ancestors(of: leaf).first(where: { !($0.accessibilityIdentifier ?? "").isEmpty }),
@@ -54,23 +54,46 @@ enum TargetResolver {
             let label = view is FeedpulseIdMarkerView ? nil : safeLabel(of: view)
             candidates.append((Explicit(view: view, id: id, label: label), area(of: view, in: window), 1))
         }
-        for marker in markers(in: window) {
+        let (markers, order) = markersAndPaintOrder(in: window)
+        for marker in markers {
             let frame = marker.convert(marker.bounds, to: window)
-            guard !marker.isHidden, frame.contains(point), !marker.feedpulseId.isEmpty else { continue }
+            guard frame.contains(point), !marker.feedpulseId.isEmpty,
+                  isVisible(marker, at: point, in: window),
+                  !isOccluded(marker, by: hit, order: order) else { continue }
             candidates.append((Explicit(view: marker, id: marker.feedpulseId, label: marker.feedpulseLabel),
                                frame.width * frame.height, 0))
         }
         return candidates.min { ($0.1, $0.2) < ($1.1, $1.2) }?.0
     }
 
-    private static func markers(in root: UIView) -> [FeedpulseIdMarkerView] {
+    /// 目印の一覧と、全ビューの描画順（先に描かれるほど小さい）。
+    private static func markersAndPaintOrder(in root: UIView) -> ([FeedpulseIdMarkerView], [ObjectIdentifier: Int]) {
         var found: [FeedpulseIdMarkerView] = []
+        var order: [ObjectIdentifier: Int] = [:]
         var stack: [UIView] = [root]
         while let view = stack.popLast() {
+            order[ObjectIdentifier(view)] = order.count
             if let marker = view as? FeedpulseIdMarkerView { found.append(marker) }
-            stack.append(contentsOf: view.subviews)
+            stack.append(contentsOf: view.subviews.reversed())
         }
-        return found
+        return (found, order)
+    }
+
+    /// 目印と祖先が非表示・ほぼ透明でなく、`point` が祖先のクリップ範囲内にあるか。
+    private static func isVisible(_ marker: UIView, at point: CGPoint, in window: UIWindow) -> Bool {
+        for view in ancestors(of: marker) {
+            if view.isHidden || view.alpha <= 0.01 { return false }
+            if view !== marker, view.clipsToBounds || view.layer.masksToBounds,
+               !view.convert(view.bounds, to: window).contains(point) { return false }
+        }
+        return true
+    }
+
+    /// タップが目印より後に描かれた別ビュー（目印の祖先でないもの）に当たっているとき、目印は遮蔽されている。
+    private static func isOccluded(_ marker: UIView, by hit: UIView, order: [ObjectIdentifier: Int]) -> Bool {
+        guard let hitOrder = order[ObjectIdentifier(hit)], let markerOrder = order[ObjectIdentifier(marker)],
+              hitOrder > markerOrder else { return false }
+        return !ancestors(of: marker).contains { $0 === hit }
     }
 
     // MARK: ラベル（秘匿入力は取らない）
