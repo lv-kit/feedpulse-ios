@@ -51,9 +51,37 @@ enum APIErrorDecoder {
         var code: String?
     }
 
+    private static func httpDate(_ value: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        for format in ["EEE, dd MMM yyyy HH:mm:ss 'GMT'", "EEEE, dd-MMM-yy HH:mm:ss 'GMT'", "EEE MMM d HH:mm:ss yyyy"] {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: value) { return date }
+        }
+        return nil
+    }
+
+    private static func retryAfter(_ headers: [String: String]) -> TimeInterval? {
+        guard let raw = headers["retry-after"]?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        if raw.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }), let seconds = TimeInterval(raw) {
+            return seconds.isFinite && seconds >= 0 ? seconds : nil
+        }
+        guard let deadline = httpDate(raw) else { return nil }
+        let reference = headers["date"].flatMap(httpDate) ?? Date()
+        return max(0, deadline.timeIntervalSince(reference))
+    }
+
     /// 非 2xx 応答を契約のエラーに変換する。本文が契約の形でなければ `invalidResponse`。
     static func decode(_ r: HTTPResponse) -> FeedpulseError {
         guard let body = try? JSONDecoder().decode(Body.self, from: r.body), let code = body.error else {
+            if r.status == 429 {
+                return .api(FeedpulseAPIError(
+                    status: r.status,
+                    code: .rateLimited,
+                    retryAfter: retryAfter(r.headers)
+                ))
+            }
             return .invalidResponse(status: r.status)
         }
         var fields: [String: FeedpulseFieldError] = [:]
@@ -65,7 +93,7 @@ enum APIErrorDecoder {
             code: FeedpulseErrorCode(rawValue: code),
             fields: fields,
             identityFailure: body.code.map(FeedpulseIdentityFailure.init(rawValue:)),
-            retryAfter: r.headers["retry-after"].flatMap { TimeInterval($0.trimmingCharacters(in: .whitespaces)) }
+            retryAfter: retryAfter(r.headers)
         ))
     }
 }

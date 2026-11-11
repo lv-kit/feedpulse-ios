@@ -347,6 +347,47 @@ final class ValidatorTests: XCTestCase {
 final class ReviewFixTests: XCTestCase {
     let contract = ContractTests()
 
+    func testRetryAfterSupportsHttpDatesAndRejectsInvalidValues() {
+        let bodies = [Data(), Data("{\"error\":\"rate_limited\"}".utf8)]
+        for body in bodies {
+            func decode(_ value: String) -> FeedpulseAPIError? {
+                let response = HTTPResponse(status: 429, headers: [
+                    "date": "Sun, 06 Nov 1994 08:49:37 GMT",
+                    "retry-after": value,
+                ], body: body)
+                if case .api(let error) = APIErrorDecoder.decode(response) { return error }
+                return nil
+            }
+            XCTAssertEqual(decode("Sun, 06 Nov 1994 08:50:37 GMT")?.retryAfter, 60)
+            XCTAssertEqual(decode("Sunday, 06-Nov-94 08:50:37 GMT")?.retryAfter, 60)
+            XCTAssertEqual(decode("Sun Nov  6 08:50:37 1994")?.retryAfter, 60)
+            XCTAssertEqual(decode("Sun, 06 Nov 1994 08:48:37 GMT")?.retryAfter, 0)
+            XCTAssertEqual(decode(" 30 ")?.retryAfter, 30)
+            for value in ["-1", "1.5", "NaN", "inf", "invalid"] {
+                XCTAssertNil(decode(value)?.retryAfter)
+            }
+        }
+    }
+
+    func testNonJSONRateLimitIsRetriedWithRetryAfter() async throws {
+        let h = contract.makeHarness()
+        contract.serve()
+        try await h.client.refresh()
+        contract.serve(["/v1/submit": { _ in
+            MockResponse(status: 429, headers: ["Retry-After": "2"], body: Data("<html>busy</html>".utf8))
+        }])
+        do {
+            try await h.client.submit(FeedpulseSubmission(formId: contract.formId, values: ["title": "t", "severity": "low"]))
+            XCTFail()
+        } catch let error as FeedpulseError {
+            guard case .api(let api) = error else { return XCTFail("\(error)") }
+            XCTAssertEqual(api.code, .rateLimited)
+            XCTAssertEqual(api.retryAfter, 2)
+            XCTAssertTrue(error.isRetryable)
+        }
+        XCTAssertEqual(contract.requests("/v1/submit").count, 3)
+    }
+
     func testQuotaExceededIsNotRetried() async throws {
         let h = contract.makeHarness()
         contract.serve()
