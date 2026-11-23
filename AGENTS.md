@@ -13,13 +13,19 @@ FeedPulse（Cloudflare Workers 上のフィードバック収集・配信 SaaS�
 
 ## 検証
 
-CI（`.github/workflows/ci.yml`）と同じ形で実行する。
+PR 作成前に、次をローカルで実行する（CI では検証しない）。
 
 - `swift test`: macOS で実行（UIKit 依存のピッカーを除く）
-- `xcodebuild build -scheme Feedpulse -destination 'generic/platform=iOS Simulator'`: CI のビルド
-- `xcodebuild test -scheme Feedpulse -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`: シミュレーターでの全テスト（機種名は `xcrun simctl list devices available` で確認する）
+- `xcodebuild build -scheme Feedpulse -destination 'generic/platform=iOS Simulator'`: ビルド
+- `xcodebuild test -scheme Feedpulse -destination 'platform=iOS Simulator,name=iPhone 16e,OS=26.1'`: シミュレーターでの全テスト（機種名と OS は `xcrun simctl list devices available` で確認する）
 
 実機の App Attest は自動テストで確認できない（README の「既知の限界」）。
+
+## CI の方針
+
+デプロイ作業以外の検証用CI（GitHub Actions 等）は作らない。PR 作成前に `xcodebuild build -scheme Feedpulse -destination 'generic/platform=iOS Simulator'` と `xcodebuild test -scheme Feedpulse -destination 'platform=iOS Simulator,name=iPhone 16e,OS=26.1'`（機種名と OS は `xcrun simctl list devices available` で利用可能な iPhone シミュレーターを確認する） をローカルで実行し、すべて成功させる。実行できない場合や失敗した場合は PR を作成しない。CI を追加してよいのはデプロイ作業だけ。
+
+Branch protection に必須ステータスチェック `CI` が残っている場合は外す（ワークフローを廃止したため、残すと PR が merge できなくなる）。
 
 ## API 契約
 
@@ -96,6 +102,5 @@ AIエージェントは、次の3点に従う。他の節に merge の承認を�
 1. **worktree は後始末する。** 作業用に作成した git worktree は、作業を終了したとき、またはその PR を merge したときに削除する（`git worktree remove <path>`、不要になったローカルブランチの削除、`git worktree prune`）。未コミット・未 push の変更が残っているときは、削除せずユーザーへ報告する。
 2. **PR 作成までは自動で行う。** 変更を実装したら、確認を待たずにコミット・push・PR 作成まで実施する。
 3. **PR は自動で merge してよい。** ユーザーから「merge しない」「確認してから merge」などの明示的な指示がない限り、PR を merge する。次のときは merge せず、状況をユーザーへ報告する。
-   - 必須 CI が、課金・利用枠以外の理由で失敗している
    - 未対応の PR コメントや、ブロッキング指摘が残っている
    - production へのデプロイ、課金ジョブの起動、第三者リソース・認証情報の変更を伴う（これらは従来どおりユーザーの明示承認を要する。この規定の対象外）
