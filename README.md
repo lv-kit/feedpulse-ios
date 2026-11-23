@@ -214,7 +214,7 @@ let target = try await Feedpulse.pickTarget()   // async 版。Task キャンセ
 
 ## target の形
 
-`context.auto.target`（#105 / #106）。nil のキーは出力しない。
+`context.auto.target`。nil のキーは出力しない。
 
 ```json
 { "platform": "ios", "screen": "HomeViewController", "id": "pay-button",
@@ -224,7 +224,7 @@ let target = try await Feedpulse.pickTarget()   // async 版。Task キャンセ
 
 上限（UTF-16）: id 200 / screen 512 / path 512（超過時は末尾を残し `…>` 前置）/ label 100〜200。制御文字は除去。
 `rect` は window 座標の pt（整数丸め）。`platform` は既定 `ios`、RN ブリッジは `.reactNative`（`"react-native"`）に差し替える。
-上限は ingest の `TARGET_LIMITS`（#106 確定値）と同じ。超過すると ingest は target ごと捨てるため SDK 側で切る。`rect` は各値の絶対値 1,000,000 以下・w/h 非負、範囲外は rect を省く。id と path のどちらかが無い target も捨てられる（SDK は path を常に付ける）。
+上限は ingest の `TARGET_LIMITS`と同じ。超過すると ingest は target ごと捨てるため SDK 側で切る。`rect` は各値の絶対値 1,000,000 以下・w/h 非負、範囲外は rect を省く。id と path のどちらかが無い target も捨てられる（SDK は path を常に付ける）。
 
 ## テスト
 
