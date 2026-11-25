@@ -39,7 +39,7 @@ public protocol FeedpulseAttestationProvider: Sendable {
     func payload(forChallenge challenge: String) async throws -> FeedpulseAttestationPayload
     /// サーバーがこの証明を受理した。鍵を使い続けてよい。
     func accepted(_ payload: FeedpulseAttestationPayload) async
-    /// サーバーが証明を拒否した（`attestation_failed`）。保存している鍵があれば捨て、次回は鍵を作り直す。
+    /// サーバーが証明を拒否した（`attestation_failed`）。拒否された証明の鍵が現在の保存鍵と同じときだけ捨て、次回は鍵を作り直す。
     func rejected(_ payload: FeedpulseAttestationPayload) async
 }
 
@@ -98,7 +98,8 @@ public final class AppAttestProvider: FeedpulseAttestationProvider, @unchecked S
                     throw FeedpulseError.cancelled
                 } catch {
                     // 保存済みの鍵が端末側で無効（再インストール・OS 復元など）。捨てて、この呼び出しの中で作り直す。
-                    forgetKey()
+                    // 待っている間に別の処理が新しい鍵を保存していたら、それは消さない。
+                    forgetKey(ifCurrent: keyId)
                 }
             }
             let keyId = try await service.generateKey()
@@ -118,25 +119,38 @@ public final class AppAttestProvider: FeedpulseAttestationProvider, @unchecked S
     private var memoryKeyId: String?
 
     private func currentKeyId() -> String? {
-        if let id = keyStore.load() { return id }
         lock.lock(); defer { lock.unlock() }
+        return currentKeyIdLocked()
+    }
+
+    private func currentKeyIdLocked() -> String? {
+        if let id = keyStore.load() { return id }
         return memoryKeyId
     }
 
-    private func forgetKey() {
+    /// 現在の鍵が `keyId` のときだけ捨てる。確認と削除は同じロックの中で行い、間に別の保存が入らないようにする。
+    private func forgetKey(ifCurrent keyId: String) {
+        lock.lock(); defer { lock.unlock() }
+        guard currentKeyIdLocked() == keyId else { return }
         keyStore.delete()
-        lock.lock(); memoryKeyId = nil; lock.unlock()
+        memoryKeyId = nil
     }
 
     public func accepted(_ payload: FeedpulseAttestationPayload) async {
         if case .attestation(let keyId, _) = payload {
+            lock.lock(); defer { lock.unlock() }
             keyStore.save(keyId)
-            lock.lock(); memoryKeyId = keyId; lock.unlock()
+            memoryKeyId = keyId
         }
     }
 
     public func rejected(_ payload: FeedpulseAttestationPayload) async {
-        forgetKey()
+        switch payload {
+        case .attestation(let keyId, _), .assertion(let keyId, _):
+            forgetKey(ifCurrent: keyId)
+        case .devInsecure:
+            break
+        }
     }
 }
 
